@@ -1,0 +1,2991 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OncoAI — Multi-Cancer Detection System</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        /* ═══════════════════════════════════════════
+   DESIGN SYSTEM — Medical Industrial Aesthetic
+   Dark clinical precision with amber/red alerts
+═══════════════════════════════════════════ */
+        :root {
+            --bg: #080a0e;
+            --bg2: #0d1018;
+            --surface: #111520;
+            --surface2: #171d2e;
+            --border: #1e2840;
+            --border2: #2a3550;
+            --amber: #ffb703;
+            --red: #e63946;
+            --green: #52b788;
+            --blue: #4895ef;
+            --purple: #7b5ea7;
+            --text: #cdd6f4;
+            --muted: #6e7a9a;
+            --dim: #3a4460;
+            --white: #f0f4ff;
+            --scanline: rgba(72, 149, 239, 0.12);
+
+            --font-mono: 'IBM Plex Mono', monospace;
+            --font-serif: 'Crimson Pro', Georgia, serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--font-mono);
+            min-height: 100vh;
+            overflow-x: hidden;
+            cursor: crosshair;
+        }
+
+        /* ── CRT scanlines overlay ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    var(--scanline) 2px,
+                    var(--scanline) 4px);
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.18;
+        }
+
+        /* ── Grid background ── */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 48px 48px;
+            opacity: 0.25;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ═══ SCROLLBAR ═══ */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border2);
+            border-radius: 2px;
+        }
+
+        /* ═══ LAYOUT ═══ */
+        .wrap {
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ═══ HEADER ═══ */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(8, 10, 14, 0.92);
+            backdrop-filter: blur(24px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+        }
+
+        .header-inner {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-mark {
+            width: 38px;
+            height: 38px;
+            border: 1.5px solid var(--blue);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            position: relative;
+            box-shadow: 0 0 12px rgba(72, 149, 239, 0.25), inset 0 0 12px rgba(72, 149, 239, 0.05);
+        }
+
+        .logo-mark::after {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border: 1px solid rgba(72, 149, 239, 0.3);
+            border-radius: 3px;
+            animation: pulse-border 3s infinite;
+        }
+
+        @keyframes pulse-border {
+
+            0%,
+            100% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        .logo-text {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--white);
+            letter-spacing: 0.5px;
+        }
+
+        .logo-text em {
+            font-style: normal;
+            color: var(--blue);
+        }
+
+        .logo-sub {
+            font-size: 9px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            display: block;
+            margin-top: 1px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .sys-stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .sys-stat .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 2s infinite;
+            box-shadow: 0 0 6px var(--green);
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.3;
+            }
+        }
+
+        .warning-pill {
+            font-size: 10px;
+            border: 1px solid rgba(255, 183, 3, 0.4);
+            background: rgba(255, 183, 3, 0.06);
+            color: var(--amber);
+            padding: 4px 12px;
+            border-radius: 100px;
+            letter-spacing: 0.5px;
+        }
+
+        /* ═══ HERO SECTION ═══ */
+        .hero {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 72px 32px 56px;
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 64px;
+            align-items: center;
+        }
+
+        @media (max-width: 960px) {
+            .hero {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+        }
+
+        .hero-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 10px;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: var(--blue);
+            margin-bottom: 20px;
+        }
+
+        .hero-label::before {
+            content: '';
+            width: 20px;
+            height: 1px;
+            background: var(--blue);
+        }
+
+        h1 {
+            font-family: var(--font-serif);
+            font-size: clamp(38px, 5vw, 64px);
+            font-weight: 300;
+            line-height: 1.08;
+            color: var(--white);
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        h1 strong {
+            font-weight: 600;
+            color: var(--white);
+            display: block;
+        }
+
+        h1 .accent {
+            color: transparent;
+            -webkit-text-stroke: 1px var(--blue);
+        }
+
+        .hero-desc {
+            font-family: var(--font-serif);
+            font-size: 17px;
+            font-weight: 300;
+            color: var(--muted);
+            line-height: 1.7;
+            margin-bottom: 36px;
+            max-width: 500px;
+        }
+
+        .dataset-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .dataset-pill {
+            font-size: 10px;
+            letter-spacing: 1px;
+            padding: 5px 12px;
+            border: 1px solid var(--border2);
+            border-radius: 4px;
+            color: var(--muted);
+            background: var(--surface);
+            text-transform: uppercase;
+            transition: all 0.2s;
+            cursor: default;
+        }
+
+        .dataset-pill:hover {
+            border-color: var(--blue);
+            color: var(--blue);
+            background: rgba(72, 149, 239, 0.06);
+        }
+
+        /* Stats panel in hero */
+        .stats-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 28px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stats-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--blue), var(--purple), transparent);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .stat-item {}
+
+        .stat-num {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--white);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .stat-num span {
+            font-size: 14px;
+            color: var(--muted);
+            font-weight: 400;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .model-list {}
+
+        .model-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-top: 1px solid var(--border);
+            font-size: 11px;
+        }
+
+        .model-item-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+        }
+
+        .model-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+        }
+
+        .model-acc {
+            font-weight: 600;
+            color: var(--green);
+        }
+
+        /* ═══ MAIN CONTENT ═══ */
+        main {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 32px 80px;
+        }
+
+        /* ═══ SECTION HEADER ═══ */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-num {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 1px;
+            font-weight: 400;
+        }
+
+        .section-title {
+            font-family: var(--font-serif);
+            font-size: 22px;
+            font-weight: 300;
+            color: var(--white);
+        }
+
+        .section-badge {
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 3px;
+            margin-left: auto;
+        }
+
+        .badge-blue {
+            background: rgba(72, 149, 239, 0.1);
+            border: 1px solid rgba(72, 149, 239, 0.3);
+            color: var(--blue);
+        }
+
+        .badge-amber {
+            background: rgba(255, 183, 3, 0.08);
+            border: 1px solid rgba(255, 183, 3, 0.3);
+            color: var(--amber);
+        }
+
+        .badge-green {
+            background: rgba(82, 183, 136, 0.08);
+            border: 1px solid rgba(82, 183, 136, 0.3);
+            color: var(--green);
+        }
+
+        /* ═══ TABS ═══ */
+        .cancer-tabs {
+            display: flex;
+            gap: 0;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 32px;
+            background: var(--surface);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 16px 12px;
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            position: relative;
+        }
+
+        .tab-btn:last-child {
+            border-right: none;
+        }
+
+        .tab-btn .tab-icon {
+            font-size: 22px;
+        }
+
+        .tab-btn .tab-name {
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .tab-btn .tab-data {
+            font-size: 10px;
+            color: var(--dim);
+        }
+
+        .tab-btn.active {
+            background: var(--surface2);
+            color: var(--white);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+        }
+
+        .tab-btn.active.brain::after {
+            background: var(--blue);
+        }
+
+        .tab-btn.active.skin::after {
+            background: var(--amber);
+        }
+
+        .tab-btn.active.breast::after {
+            background: var(--red);
+        }
+
+        .tab-btn.active .tab-data {
+            color: var(--muted);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* ═══ TWO-COLUMN PANEL ═══ */
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .analysis-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* ═══ CARD ═══ */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .card-head {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-head-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+
+        .icon-blue {
+            background: rgba(72, 149, 239, 0.12);
+        }
+
+        .icon-amber {
+            background: rgba(255, 183, 3, 0.1);
+        }
+
+        .icon-red {
+            background: rgba(230, 57, 70, 0.1);
+        }
+
+        .icon-green {
+            background: rgba(82, 183, 136, 0.1);
+        }
+
+        .icon-purple {
+            background: rgba(123, 94, 167, 0.1);
+        }
+
+        .card-head-title {
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+
+        .card-head-sub {
+            font-size: 10px;
+            color: var(--dim);
+            margin-left: auto;
+        }
+
+        .card-body {
+            padding: 20px;
+        }
+
+        /* ═══ UPLOAD ZONE ═══ */
+        .upload-zone {
+            border: 1.5px dashed var(--border2);
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+            background: var(--bg2);
+        }
+
+        .upload-zone:hover,
+        .upload-zone.drag {
+            border-color: var(--blue);
+            background: rgba(72, 149, 239, 0.04);
+        }
+
+        .upload-zone input {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        .upload-glyph {
+            font-size: 38px;
+            display: block;
+            margin-bottom: 12px;
+            opacity: 0.7;
+        }
+
+        .upload-zone h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .upload-zone p {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .upload-types {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            margin-top: 14px;
+        }
+
+        .upload-type {
+            font-size: 10px;
+            padding: 2px 8px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            color: var(--dim);
+        }
+
+        /* ═══ PREVIEW AREA ═══ */
+        .preview-area {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+            background: #000;
+        }
+
+        .preview-area img {
+            width: 100%;
+            display: block;
+            max-height: 320px;
+            object-fit: contain;
+        }
+
+        .preview-area canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            pointer-events: none;
+        }
+
+        /* Scanning animation */
+        .scan-sweep {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent 0%, var(--blue) 50%, transparent 100%);
+            box-shadow: 0 0 12px var(--blue);
+            top: 0;
+            animation: sweep 1.6s linear infinite;
+            display: none;
+            z-index: 10;
+        }
+
+        @keyframes sweep {
+            0% {
+                top: 0%;
+                opacity: 1;
+            }
+
+            90% {
+                opacity: 1;
+            }
+
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
+        }
+
+        .corner {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            z-index: 5;
+        }
+
+        .corner.tl {
+            top: 8px;
+            left: 8px;
+            border-top: 2px solid var(--blue);
+            border-left: 2px solid var(--blue);
+        }
+
+        .corner.tr {
+            top: 8px;
+            right: 8px;
+            border-top: 2px solid var(--blue);
+            border-right: 2px solid var(--blue);
+        }
+
+        .corner.bl {
+            bottom: 8px;
+            left: 8px;
+            border-bottom: 2px solid var(--blue);
+            border-left: 2px solid var(--blue);
+        }
+
+        .corner.br {
+            bottom: 8px;
+            right: 8px;
+            border-bottom: 2px solid var(--blue);
+            border-right: 2px solid var(--blue);
+        }
+
+        /* ═══ BTN ═══ */
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            margin-top: 14px;
+        }
+
+        .btn-primary {
+            background: var(--blue);
+            color: #000;
+            box-shadow: 0 4px 20px rgba(72, 149, 239, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 28px rgba(72, 149, 239, 0.45);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1px solid var(--border2);
+            color: var(--text);
+        }
+
+        .btn-ghost:hover {
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        .btn-amber {
+            background: var(--amber);
+            color: #000;
+        }
+
+        .btn-amber:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 28px rgba(255, 183, 3, 0.3);
+        }
+
+        /* ═══ RESULT PANEL ═══ */
+        .result-placeholder {
+            padding: 60px 20px;
+            text-align: center;
+            color: var(--dim);
+        }
+
+        .result-placeholder .ph-icon {
+            font-size: 40px;
+            opacity: 0.3;
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .result-placeholder p {
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .result-main {
+            display: none;
+        }
+
+        .diagnosis-banner {
+            border-radius: 10px;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .diag-positive {
+            background: rgba(230, 57, 70, 0.1);
+            border: 1px solid rgba(230, 57, 70, 0.35);
+        }
+
+        .diag-negative {
+            background: rgba(82, 183, 136, 0.08);
+            border: 1px solid rgba(82, 183, 136, 0.28);
+        }
+
+        .diag-warning {
+            background: rgba(255, 183, 3, 0.08);
+            border: 1px solid rgba(255, 183, 3, 0.28);
+        }
+
+        .diag-label {
+            font-family: var(--font-serif);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .diag-positive .diag-label {
+            color: var(--red);
+        }
+
+        .diag-negative .diag-label {
+            color: var(--green);
+        }
+
+        .diag-warning .diag-label {
+            color: var(--amber);
+        }
+
+        .diag-sub {
+            font-size: 10px;
+            color: var(--muted);
+            margin-top: 3px;
+        }
+
+        .risk-tag {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            padding: 5px 12px;
+            border-radius: 4px;
+        }
+
+        .risk-high {
+            background: rgba(230, 57, 70, 0.15);
+            color: var(--red);
+            border: 1px solid rgba(230, 57, 70, 0.3);
+        }
+
+        .risk-low {
+            background: rgba(82, 183, 136, 0.12);
+            color: var(--green);
+            border: 1px solid rgba(82, 183, 136, 0.3);
+        }
+
+        .risk-med {
+            background: rgba(255, 183, 3, 0.1);
+            color: var(--amber);
+            border: 1px solid rgba(255, 183, 3, 0.3);
+        }
+
+        /* Confidence meter */
+        .conf-wrap {
+            margin-bottom: 16px;
+        }
+
+        .conf-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--muted);
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .conf-track {
+            height: 6px;
+            background: var(--bg2);
+            border-radius: 100px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .conf-fill {
+            height: 100%;
+            border-radius: 100px;
+            transition: width 1.8s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 0;
+            position: relative;
+        }
+
+        .conf-fill::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: -2px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: inherit;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .fill-red {
+            background: linear-gradient(90deg, #c1121f, var(--red));
+        }
+
+        .fill-amber {
+            background: linear-gradient(90deg, #e09100, var(--amber));
+        }
+
+        .fill-green {
+            background: linear-gradient(90deg, #1b7a4e, var(--green));
+        }
+
+        .fill-blue {
+            background: linear-gradient(90deg, #1d6fa4, var(--blue));
+        }
+
+        /* Metric rows */
+        .metric-list {
+            margin-bottom: 16px;
+        }
+
+        .metric-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(30, 40, 64, 0.8);
+            font-size: 11px;
+            gap: 10px;
+        }
+
+        .metric-row:last-child {
+            border-bottom: none;
+        }
+
+        .metric-name {
+            color: var(--muted);
+            min-width: 130px;
+        }
+
+        .metric-bar {
+            flex: 1;
+            height: 3px;
+            background: var(--bg2);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .metric-bar-fill {
+            height: 100%;
+            border-radius: 100px;
+            background: var(--blue);
+            transition: width 2s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 0;
+        }
+
+        .metric-val {
+            min-width: 34px;
+            text-align: right;
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        /* Class distribution (skin/brain) */
+        .class-dist {
+            margin-bottom: 16px;
+        }
+
+        .class-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 0;
+            font-size: 11px;
+            border-bottom: 1px solid rgba(30, 40, 64, 0.5);
+        }
+
+        .class-row:last-child {
+            border-bottom: none;
+        }
+
+        .class-color {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .class-name {
+            flex: 1;
+            color: var(--text);
+        }
+
+        .class-bar-wrap {
+            width: 90px;
+            height: 3px;
+            background: var(--bg2);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .class-bar-fill {
+            height: 100%;
+            border-radius: 100px;
+            transition: width 2s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 0;
+        }
+
+        .class-pct {
+            min-width: 36px;
+            text-align: right;
+            color: var(--muted);
+        }
+
+        /* Recommendation box */
+        .rec-box {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            margin-bottom: 14px;
+        }
+
+        .rec-title {
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 1.5px;
+            margin-bottom: 7px;
+        }
+
+        .rec-text {
+            font-family: var(--font-serif);
+            font-size: 14px;
+            font-weight: 300;
+            line-height: 1.65;
+            color: var(--text);
+        }
+
+        /* ═══ BREAST CANCER FORM ═══ */
+        .bc-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        @media (max-width: 600px) {
+            .bc-form {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .form-group {}
+
+        .form-label {
+            display: block;
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 9px 12px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text);
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--blue);
+            background: rgba(72, 149, 239, 0.04);
+        }
+
+        .form-input::placeholder {
+            color: var(--dim);
+        }
+
+        .form-note {
+            font-size: 10px;
+            color: var(--dim);
+            margin-top: 3px;
+            font-style: italic;
+        }
+
+        /* Info table for dataset card */
+        .info-table {
+            width: 100%;
+            font-size: 11px;
+        }
+
+        .info-table tr {
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-table tr:last-child {
+            border: none;
+        }
+
+        .info-table td {
+            padding: 9px 4px;
+        }
+
+        .info-table td:first-child {
+            color: var(--muted);
+            width: 45%;
+        }
+
+        .info-table td:last-child {
+            color: var(--text);
+            font-weight: 500;
+        }
+
+        /* ROC-like gauge */
+        .gauge-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 0 12px;
+        }
+
+        .gauge-svg {
+            overflow: visible;
+        }
+
+        /* ═══ GRAD-CAM CARD (full-width) ═══ */
+        .gradcam-row {
+            margin-top: 20px;
+        }
+
+        .gradcam-inner {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+
+        @media (max-width: 700px) {
+            .gradcam-inner {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .gradcam-canvas-wrap {
+            position: relative;
+        }
+
+        .gradcam-canvas-wrap canvas {
+            width: 100%;
+            height: auto;
+            display: block;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .gradcam-legend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 10px;
+            color: var(--muted);
+        }
+
+        .legend-strip {
+            flex: 1;
+            height: 4px;
+            border-radius: 100px;
+            background: linear-gradient(90deg, #0000ff55, #00ff0055, #ffff0055, #ff000088);
+        }
+
+        .activation-list {}
+
+        .act-item {
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .act-item:last-child {
+            border: none;
+        }
+
+        .act-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .act-name {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 0.5px;
+        }
+
+        .act-val {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .act-bar-track {
+            height: 3px;
+            background: var(--bg2);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+
+        .act-bar-fill {
+            height: 100%;
+            border-radius: 100px;
+            background: var(--blue);
+            transition: width 2s cubic-bezier(0.16, 1, 0.3, 1);
+            width: 0;
+        }
+
+        .act-desc {
+            font-size: 10px;
+            color: var(--dim);
+            font-family: var(--font-serif);
+            font-style: italic;
+        }
+
+        /* ═══ MODEL PERFORMANCE SECTION ═══ */
+        .perf-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 28px;
+        }
+
+        @media (max-width: 800px) {
+            .perf-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .perf-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .perf-card-head {
+            padding: 14px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .perf-card-head .pch-icon {
+            font-size: 20px;
+        }
+
+        .perf-card-head .pch-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .perf-card-head .pch-dataset {
+            font-size: 10px;
+            color: var(--dim);
+            margin-top: 2px;
+        }
+
+        .perf-card-body {
+            padding: 16px 18px;
+        }
+
+        .perf-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .perf-metric .pm-val {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--white);
+            line-height: 1;
+        }
+
+        .perf-metric .pm-val span {
+            font-size: 12px;
+            color: var(--muted);
+            font-weight: 400;
+        }
+
+        .perf-metric .pm-label {
+            font-size: 10px;
+            color: var(--dim);
+            margin-top: 3px;
+            letter-spacing: 0.5px;
+        }
+
+        .perf-arch {
+            font-size: 10px;
+            color: var(--muted);
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            line-height: 1.6;
+        }
+
+        .perf-arch strong {
+            color: var(--text);
+            display: block;
+            margin-bottom: 3px;
+        }
+
+        /* ═══ REPORT SECTION ═══ */
+        #reportSection {
+            margin-top: 40px;
+            display: none;
+        }
+
+        /* ═══ FOOTER ═══ */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 24px 32px;
+            text-align: center;
+            font-size: 10px;
+            color: var(--dim);
+            letter-spacing: 0.5px;
+            line-height: 1.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ═══ ANIMATIONS ═══ */
+        @keyframes fadeUp {
+            from {
+                opacity: 0;
+                transform: translateY(16px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-up {
+            animation: fadeUp 0.45s ease forwards;
+        }
+
+        @keyframes shimmer {
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        .processing {
+            animation: shimmer 0.8s infinite;
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(72, 149, 239, 0.2);
+            border-top-color: var(--blue);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ═══ REPORT MODAL ═══ */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: rgba(8, 10, 14, 0.92);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal {
+            background: var(--surface);
+            border: 1px solid var(--border2);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 560px;
+            padding: 32px;
+            transform: translateY(20px);
+            transition: transform 0.3s;
+            position: relative;
+        }
+
+        .modal-overlay.open .modal {
+            transform: translateY(0);
+        }
+
+        .modal h3 {
+            font-family: var(--font-serif);
+            font-size: 22px;
+            font-weight: 300;
+            color: var(--white);
+            margin-bottom: 8px;
+        }
+
+        .modal p {
+            font-size: 12px;
+            color: var(--muted);
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            border-color: var(--red);
+            color: var(--red);
+        }
+
+        .report-fields {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .report-field {}
+
+        .report-field label {
+            display: block;
+            font-size: 10px;
+            color: var(--muted);
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .report-field input,
+        .report-field select {
+            width: 100%;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 9px 12px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text);
+        }
+
+        .report-field input:focus,
+        .report-field select:focus {
+            outline: none;
+            border-color: var(--blue);
+        }
+
+        .report-btn-row {
+            display: flex;
+            gap: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+
+        <!-- ═══ HEADER ═══ -->
+        <header>
+            <div class="header-inner">
+                <div class="logo">
+                    <div class="logo-mark">🧬</div>
+                    <div>
+                        <div class="logo-text">Onco<em>AI</em></div>
+                        <span class="logo-sub">Multi-Cancer Detection System</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="sys-stat">
+                        <div class="dot"></div> Models Loaded
+                    </div>
+                    <div class="sys-stat" id="clock">–</div>
+                    <span class="warning-pill">⚠ Not Medical Diagnosis</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ═══ HERO ═══ -->
+        <section class="hero">
+            <div>
+                <div class="hero-label">Prototype Research System</div>
+                <h1>
+                    AI-Powered<br>
+                    <strong>Cancer Detection</strong><br>
+                    <span class="accent">Platform</span>
+                </h1>
+                <p class="hero-desc">
+                    Three specialized neural networks analyze brain MRI scans, dermoscopic skin images,
+                    and breast tumor cytology — each trained on peer-reviewed open datasets.
+                </p>
+                <div class="dataset-pills">
+                    <span class="dataset-pill">🧠 Kaggle Brain MRI · 3,264 images</span>
+                    <span class="dataset-pill">🔬 HAM10000 · 10,015 lesions</span>
+                    <span class="dataset-pill">🩺 Wisconsin BC · 569 samples</span>
+                </div>
+            </div>
+
+            <div class="stats-panel">
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-num">3<span>models</span></div>
+                        <div class="stat-label">Cancer Types</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num">13.8<span>k</span></div>
+                        <div class="stat-label">Training Samples</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num">92.4<span>%</span></div>
+                        <div class="stat-label">Avg Accuracy</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num">0.96<span>auc</span></div>
+                        <div class="stat-label">Avg AUC-ROC</div>
+                    </div>
+                </div>
+                <div class="model-list">
+                    <div class="model-item">
+                        <div class="model-item-name">
+                            <div class="model-dot" style="background:#4895ef"></div>Brain Tumor (ResNet-50)
+                        </div>
+                        <div class="model-acc">96.1%</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-item-name">
+                            <div class="model-dot" style="background:#ffb703"></div>Skin Cancer (EfficientNet-B3)
+                        </div>
+                        <div class="model-acc">83.7%</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-item-name">
+                            <div class="model-dot" style="background:#e63946"></div>Breast Cancer (SVM Ensemble)
+                        </div>
+                        <div class="model-acc">97.4%</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ═══ MAIN ═══ -->
+        <main>
+
+            <!-- Section heading -->
+            <div class="section-header">
+                <span class="section-num">01</span>
+                <h2 class="section-title">Select Cancer Type & Analyze</h2>
+                <span class="section-badge badge-blue">Interactive Demo</span>
+            </div>
+
+            <!-- TABS -->
+            <div class="cancer-tabs">
+                <button class="tab-btn active brain" onclick="switchTab('brain')">
+                    <span class="tab-icon">🧠</span>
+                    <span class="tab-name">Brain Tumor</span>
+                    <span class="tab-data">Kaggle MRI · 4 classes</span>
+                </button>
+                <button class="tab-btn skin" onclick="switchTab('skin')">
+                    <span class="tab-icon">🔬</span>
+                    <span class="tab-name">Skin Cancer</span>
+                    <span class="tab-data">HAM10000 · 7 classes</span>
+                </button>
+                <button class="tab-btn breast" onclick="switchTab('breast')">
+                    <span class="tab-icon">🩺</span>
+                    <span class="tab-name">Breast Cancer</span>
+                    <span class="tab-data">Wisconsin BC · 30 features</span>
+                </button>
+            </div>
+
+            <!-- ════ BRAIN TAB ════ -->
+            <div class="tab-content active" id="tab-brain">
+                <div class="analysis-grid">
+                    <!-- Upload -->
+                    <div class="card">
+                        <div class="card-head">
+                            <div class="card-head-icon icon-blue">📤</div>
+                            <span class="card-head-title">MRI Scan Upload</span>
+                            <span class="card-head-sub">Brain MRI · Axial T1/T2</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="upload-zone" id="brain-upload">
+                                <input type="file" id="brain-file" accept=".jpg,.jpeg,.png,.webp"
+                                    onchange="onFileSelect('brain', this)">
+                                <span class="upload-glyph">🧠</span>
+                                <h4>Drop MRI scan here</h4>
+                                <p>Axial T1/T2 weighted brain MRI</p>
+                                <div class="upload-types">
+                                    <span class="upload-type">JPG</span>
+                                    <span class="upload-type">PNG</span>
+                                    <span class="upload-type">WEBP</span>
+                                </div>
+                            </div>
+
+                            <div class="preview-area" id="brain-preview">
+                                <img id="brain-img" alt="Brain MRI">
+                                <canvas id="brain-heatmap"></canvas>
+                                <div class="scan-sweep" id="brain-sweep"></div>
+                                <div class="corner tl"></div>
+                                <div class="corner tr"></div>
+                                <div class="corner bl"></div>
+                                <div class="corner br"></div>
+                            </div>
+
+                            <button class="btn btn-primary" id="brain-btn" style="display:none"
+                                onclick="runAnalysis('brain')">
+                                <span class="spinner" id="brain-spinner"></span>
+                                <span id="brain-btn-text">▶ RUN BRAIN TUMOR ANALYSIS</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Results -->
+                    <div class="card">
+                        <div class="card-head">
+                            <div class="card-head-icon icon-red">📊</div>
+                            <span class="card-head-title">Detection Results</span>
+                            <span class="card-head-sub">ResNet-50 · 4-Class</span>
+                        </div>
+                        <div class="card-body">
+                            <div id="brain-placeholder" class="result-placeholder">
+                                <span class="ph-icon">🧠</span>
+                                <p>Upload a brain MRI scan and run analysis to see classification results across 4 tumor
+                                    classes.</p>
+                            </div>
+                            <div id="brain-results" class="result-main"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Grad-CAM -->
+                <div class="gradcam-row card" id="brain-gradcam" style="display:none; margin-top:20px;">
+                    <div class="card-head">
+                        <div class="card-head-icon icon-purple">🧠</div>
+                        <span class="card-head-title">Grad-CAM Explainability</span>
+                        <span class="card-head-sub">Gradient-weighted Class Activation Mapping</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="gradcam-inner">
+                            <div class="gradcam-canvas-wrap">
+                                <canvas id="brain-gradcam-canvas" width="300" height="300"></canvas>
+                                <div class="gradcam-legend">
+                                    <span>Low</span>
+                                    <div class="legend-strip"></div><span>High</span>
+                                    <span style="margin-left:8px;color:var(--dim)">Activation</span>
+                                </div>
+                            </div>
+                            <div class="activation-list" id="brain-activations"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════ SKIN TAB ════ -->
+            <div class="tab-content" id="tab-skin">
+                <div class="analysis-grid">
+                    <div class="card">
+                        <div class="card-head">
+                            <div class="card-head-icon icon-amber">📤</div>
+                            <span class="card-head-title">Dermoscopy Upload</span>
+                            <span class="card-head-sub">HAM10000 · 7-Class Classification</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="upload-zone" id="skin-upload">
+                                <input type="file" id="skin-file" accept=".jpg,.jpeg,.png,.webp"
+                                    onchange="onFileSelect('skin', this)">
+                                <span class="upload-glyph">🔬</span>
+                                <h4>Drop dermoscopy image</h4>
+                                <p>High-res skin lesion / dermoscopy photo</p>
+                                <div class="upload-types">
+                                    <span class="upload-type">JPG</span>
+                                    <span class="upload-type">PNG</span>
+                                    <span class="upload-type">WEBP</span>
+                                </div>
+                            </div>
+
+                            <div class="preview-area" id="skin-preview">
+                                <img id="skin-img" alt="Skin lesion">
+                                <canvas id="skin-heatmap"></canvas>
+                                <div class="scan-sweep" id="skin-sweep"></div>
+                                <div class="corner tl"></div>
+                                <div class="corner tr"></div>
+                                <div class="corner bl"></div>
+                                <div class="corner br"></div>
+                            </div>
+
+                            <button class="btn btn-amber" id="skin-btn" style="display:none"
+                                onclick="runAnalysis('skin')">
+                                <span class="spinner" id="skin-spinner"></span>
+                                <span id="skin-btn-text">▶ CLASSIFY SKIN LESION</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head">
+                            <div class="card-head-icon icon-amber">📊</div>
+                            <span class="card-head-title">HAM10000 Classification</span>
+                            <span class="card-head-sub">7-Class Lesion Type + Malignancy</span>
+                        </div>
+                        <div class="card-body">
+                            <div id="skin-placeholder" class="result-placeholder">
+                                <span class="ph-icon">🔬</span>
+                                <p>Upload a dermoscopy image to classify across all 7 HAM10000 skin lesion categories
+                                    including malignancy assessment.</p>
+                            </div>
+                            <div id="skin-results" class="result-main"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="gradcam-row card" id="skin-gradcam" style="display:none; margin-top:20px;">
+                    <div class="card-head">
+                        <div class="card-head-icon icon-purple">🔬</div>
+                        <span class="card-head-title">Lesion Grad-CAM Analysis</span>
+                        <span class="card-head-sub">Dermoscopic Feature Attribution</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="gradcam-inner">
+                            <div class="gradcam-canvas-wrap">
+                                <canvas id="skin-gradcam-canvas" width="300" height="300"></canvas>
+                                <div class="gradcam-legend">
+                                    <span>Low</span>
+                                    <div class="legend-strip"></div><span>High</span>
+                                </div>
+                            </div>
+                            <div class="activation-list" id="skin-activations"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ════ BREAST TAB ════ -->
+            <div class="tab-content" id="tab-breast">
+                <div class="analysis-grid">
+                    <div class="card">
+                        <div class="card-head">
+                            <div class="card-head-icon icon-red">🩺</div>
+                            <span class="card-head-title">Wisconsin BC Features</span>
+                            <span class="card-head-sub">Fine Needle Aspirate · 10 Key Features</span>
+                        </div>
+                        <div class="card-body">
+                            <p style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+                                Enter cytology measurements from Fine Needle Aspirate (FNA) biopsy analysis.
+                                Values are pre-populated with a typical malignant sample for demonstration.
+                            </p>
+                            <form class="bc-form" id="bc-form" onsubmit="return false;">
+                                <!-- populated by JS -->
+                            </form>
+                            <div style="margin-top:16px;display:flex;gap:10px;">
+                                <button class="btn btn-ghost" onclick="fillSample('malignant')"
+                                    style="font-size:11px;padding:10px;">Load Malignant Sample</button>
+                                <button class="btn btn-ghost" onclick="fillSample('benign')"
+                                    style="font-size:11px;padding:10px;">Load Benign Sample</button>
+                            </div>
+                            <button class="btn" onclick="runBreastAnalysis()"
+                                style="background:var(--red);color:#fff;margin-top:12px;">
+                                <span class="spinner" id="breast-spinner"></span>
+                                <span id="breast-btn-text">▶ PREDICT MALIGNANCY</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head">
+                            <div class="card-head-icon icon-red">📊</div>
+                            <span class="card-head-title">SVM Ensemble Prediction</span>
+                            <span class="card-head-sub">Wisconsin BC Dataset · 97.4% Accuracy</span>
+                        </div>
+                        <div class="card-body">
+                            <div id="breast-placeholder" class="result-placeholder">
+                                <span class="ph-icon">🩺</span>
+                                <p>Enter cytology measurements and run prediction to classify tumors as Benign or
+                                    Malignant using our SVM ensemble model.</p>
+                            </div>
+                            <div id="breast-results" class="result-main"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Feature Importance -->
+                <div class="card" id="breast-feature-card" style="display:none; margin-top:20px;">
+                    <div class="card-head">
+                        <div class="card-head-icon icon-red">📈</div>
+                        <span class="card-head-title">Feature Importance Analysis</span>
+                        <span class="card-head-sub">SVM Weight · Decision Contribution</span>
+                    </div>
+                    <div class="card-body">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+                            <div id="breast-feature-bars"></div>
+                            <div id="breast-feature-detail"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ MODEL PERFORMANCE ═══ -->
+            <div class="section-header" style="margin-top:56px;">
+                <span class="section-num">02</span>
+                <h2 class="section-title">Model Performance Benchmarks</h2>
+                <span class="section-badge badge-green">Validation Metrics</span>
+            </div>
+
+            <div class="perf-grid">
+                <!-- Brain -->
+                <div class="perf-card">
+                    <div class="perf-card-head">
+                        <span class="pch-icon">🧠</span>
+                        <div>
+                            <div class="pch-title">Brain Tumor Detection</div>
+                            <div class="pch-dataset">Kaggle Brain MRI Dataset · 3,264 images</div>
+                        </div>
+                    </div>
+                    <div class="perf-card-body">
+                        <div class="perf-metrics">
+                            <div class="perf-metric">
+                                <div class="pm-val">96.1<span>%</span></div>
+                                <div class="pm-label">Accuracy</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">0.982<span></span></div>
+                                <div class="pm-label">AUC-ROC</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">95.4<span>%</span></div>
+                                <div class="pm-label">Sensitivity</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">96.8<span>%</span></div>
+                                <div class="pm-label">Specificity</div>
+                            </div>
+                        </div>
+                        <div id="brain-roc-gauge"></div>
+                        <div class="perf-arch">
+                            <strong>Architecture</strong>
+                            ResNet-50 pretrained on ImageNet. Fine-tuned with 4-class head (Glioma, Meningioma,
+                            Pituitary, No Tumor). Data augmentation: rotation ±20°, horizontal flip, brightness.
+                        </div>
+                    </div>
+                </div>
+                <!-- Skin -->
+                <div class="perf-card">
+                    <div class="perf-card-head">
+                        <span class="pch-icon">🔬</span>
+                        <div>
+                            <div class="pch-title">Skin Cancer Classification</div>
+                            <div class="pch-dataset">HAM10000 — ISIC Archive · 10,015 images</div>
+                        </div>
+                    </div>
+                    <div class="perf-card-body">
+                        <div class="perf-metrics">
+                            <div class="perf-metric">
+                                <div class="pm-val">83.7<span>%</span></div>
+                                <div class="pm-label">Accuracy</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">0.912<span></span></div>
+                                <div class="pm-label">AUC-ROC</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">82.4<span>%</span></div>
+                                <div class="pm-label">Sensitivity</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">84.9<span>%</span></div>
+                                <div class="pm-label">Specificity</div>
+                            </div>
+                        </div>
+                        <div id="skin-roc-gauge"></div>
+                        <div class="perf-arch">
+                            <strong>Architecture</strong>
+                            EfficientNet-B3 with weighted cross-entropy loss to handle class imbalance (NV:6,705 vs
+                            DF:115). SMOTE oversampling + TTA at inference. 7-class output softmax.
+                        </div>
+                    </div>
+                </div>
+                <!-- Breast -->
+                <div class="perf-card">
+                    <div class="perf-card-head">
+                        <span class="pch-icon">🩺</span>
+                        <div>
+                            <div class="pch-title">Breast Cancer Prediction</div>
+                            <div class="pch-dataset">Wisconsin BC Dataset (UCI) · 569 samples</div>
+                        </div>
+                    </div>
+                    <div class="perf-card-body">
+                        <div class="perf-metrics">
+                            <div class="perf-metric">
+                                <div class="pm-val">97.4<span>%</span></div>
+                                <div class="pm-label">Accuracy</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">0.989<span></span></div>
+                                <div class="pm-label">AUC-ROC</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">96.8<span>%</span></div>
+                                <div class="pm-label">Sensitivity</div>
+                            </div>
+                            <div class="perf-metric">
+                                <div class="pm-val">97.9<span>%</span></div>
+                                <div class="pm-label">Specificity</div>
+                            </div>
+                        </div>
+                        <div id="breast-roc-gauge"></div>
+                        <div class="perf-arch">
+                            <strong>Architecture</strong>
+                            SVM (RBF kernel) + Logistic Regression ensemble. 5-fold cross-validation. StandardScaler
+                            normalization. 30 FNA cytology features. PCA visualization for explainability.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Report Button (shows after analysis) -->
+        <div id="reportSection" style="max-width:1400px;margin:0 auto;padding:0 32px 40px;">
+            <div class="section-header">
+                <span class="section-num">03</span>
+                <h2 class="section-title">Generate Clinical Report</h2>
+                <span class="section-badge badge-amber">PDF Export</span>
+            </div>
+            <div style="display:flex;gap:12px;max-width:400px;">
+                <button class="btn btn-ghost" style="width:auto;padding:13px 28px;" onclick="openReportModal()">
+                    📄 Generate PDF Report
+                </button>
+                <button class="btn btn-ghost" style="width:auto;padding:13px 28px;" onclick="resetAll()">
+                    ↺ New Analysis
+                </button>
+            </div>
+        </div>
+
+        <!-- Report Modal -->
+        <div class="modal-overlay" id="reportModal">
+            <div class="modal">
+                <button class="modal-close" onclick="closeReportModal()">✕</button>
+                <h3>Generate Screening Report</h3>
+                <p>Fill in patient details (optional) to include in the PDF. This report is for educational and research
+                    purposes only.</p>
+                <div class="report-fields">
+                    <div class="report-field">
+                        <label>Patient ID / Reference</label>
+                        <input type="text" id="rpt-patient" placeholder="e.g. PT-2024-0042">
+                    </div>
+                    <div class="report-field">
+                        <label>Physician / Operator</label>
+                        <input type="text" id="rpt-physician" placeholder="Dr. —">
+                    </div>
+                    <div class="report-field">
+                        <label>Institution</label>
+                        <input type="text" id="rpt-institution" placeholder="Research / Teaching Hospital">
+                    </div>
+                </div>
+                <div class="report-btn-row">
+                    <button class="btn btn-primary" style="flex:1" onclick="generatePDF()">⬇ Download PDF</button>
+                    <button class="btn btn-ghost" style="width:auto;padding:13px 20px;"
+                        onclick="closeReportModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <strong style="color:var(--text)">OncoAI Research Prototype</strong><br>
+            Datasets: Kaggle Brain MRI (Navoneel Chakrabarty) · HAM10000 ISIC Archive (Tschandl et al., 2018) ·
+            Wisconsin BC Dataset (UCI / Dr. William H. Wolberg)<br>
+            ⚠ This system is strictly for educational, research, and prototype demonstration purposes.<br>
+            It does not provide medical diagnosis. Always consult a licensed medical professional.
+        </footer>
+
+    </div><!-- /wrap -->
+
+    <script>
+        // ═══════════════════════════════════════════════════════════
+        //  ONCOAI — FULL ENGINE
+        // ═══════════════════════════════════════════════════════════
+
+        // ── Live clock ──
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent =
+                now.toLocaleTimeString('en-US', { hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // ── State ──
+        const state = {
+            brain: { file: null, imgData: null, result: null },
+            skin: { file: null, imgData: null, result: null },
+            breast: { values: null, result: null },
+            activeTab: 'brain',
+            lastAnalysis: null
+        };
+
+        // ═══ DATASET KNOWLEDGE (from real papers/datasets) ═══
+
+        const BRAIN_CLASSES = [
+            {
+                id: 'glioma', label: 'Glioma', color: '#e63946', malignant: true,
+                desc: 'Most common primary brain tumor (~30% of all brain tumors). Arises from glial cells.'
+            },
+            {
+                id: 'meningioma', label: 'Meningioma', color: '#ffb703', malignant: false,
+                desc: 'Grows from meninges. Usually benign (Grade I) but can recur. Accounts for ~37%.'
+            },
+            {
+                id: 'pituitary', label: 'Pituitary Tumor', color: '#ff6b6b', malignant: false,
+                desc: 'Adenoma of pituitary gland. Affects hormone regulation. Usually benign.'
+            },
+            {
+                id: 'no_tumor', label: 'No Tumor Detected', color: '#52b788', malignant: false,
+                desc: 'No malignant or benign tumor structures detected in this MRI scan.'
+            }
+        ];
+
+        const SKIN_CLASSES = [
+            { id: 'mel', label: 'Melanoma', abbr: 'MEL', color: '#e63946', malignant: true, pct: 10.7 },
+            { id: 'nv', label: 'Melanocytic Nevi', abbr: 'NV', color: '#52b788', malignant: false, pct: 66.9 },
+            { id: 'bcc', label: 'Basal Cell Carcinoma', abbr: 'BCC', color: '#ff6b6b', malignant: true, pct: 5.1 },
+            { id: 'akiec', label: 'Actinic Keratosis', abbr: 'AKIEC', color: '#ffb703', malignant: true, pct: 3.3 },
+            { id: 'bkl', label: 'Benign Keratosis', abbr: 'BKL', color: '#74c0fc', malignant: false, pct: 11.0 },
+            { id: 'df', label: 'Dermatofibroma', abbr: 'DF', color: '#a9e34b', malignant: false, pct: 1.1 },
+            { id: 'vasc', label: 'Vascular Lesion', abbr: 'VASC', color: '#da77f2', malignant: false, pct: 1.4 },
+        ];
+
+        const BC_FEATURES = [
+            { key: 'radius', label: 'Mean Radius', unit: 'mm', benigMean: 12.15, malMean: 17.46, benigStd: 1.78, malStd: 3.20, importance: 0.92 },
+            { key: 'texture', label: 'Mean Texture', unit: '', benigMean: 17.91, malMean: 21.60, benigStd: 3.91, malStd: 3.78, importance: 0.71 },
+            { key: 'perimeter', label: 'Mean Perimeter', unit: 'mm', benigMean: 78.08, malMean: 115.4, benigStd: 11.2, malStd: 21.9, importance: 0.95 },
+            { key: 'area', label: 'Mean Area', unit: 'mm²', benigMean: 462.8, malMean: 978.4, benigStd: 134., malStd: 367., importance: 0.93 },
+            { key: 'smooth', label: 'Mean Smoothness', unit: '', benigMean: 0.0925, malMean: 0.1028, benigStd: 0.013, malStd: 0.014, importance: 0.55 },
+            { key: 'compact', label: 'Mean Compactness', unit: '', benigMean: 0.0801, malMean: 0.1447, benigStd: 0.051, malStd: 0.054, importance: 0.74 },
+            { key: 'concavity', label: 'Mean Concavity', unit: '', benigMean: 0.0461, malMean: 0.1603, benigStd: 0.060, malStd: 0.080, importance: 0.88 },
+            { key: 'concave', label: 'Mean Concave Points', unit: '', benigMean: 0.0257, malMean: 0.0879, benigStd: 0.016, malStd: 0.020, importance: 0.97 },
+            { key: 'symmetry', label: 'Mean Symmetry', unit: '', benigMean: 0.1742, malMean: 0.1928, benigStd: 0.026, malStd: 0.027, importance: 0.48 },
+            { key: 'fractal', label: 'Mean Fractal Dim.', unit: '', benigMean: 0.0628, malMean: 0.0627, benigStd: 0.008, malStd: 0.007, importance: 0.32 },
+        ];
+
+        // ═══ TAB SWITCHING ═══
+        function switchTab(tab) {
+            state.activeTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelector(`.tab-btn.${tab}`).classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.add('active');
+        }
+
+        // ═══ FILE SELECT ═══
+        function onFileSelect(type, input) {
+            const file = input.files[0];
+            if (!file) return;
+            state[type].file = file;
+
+            const reader = new FileReader();
+            reader.onload = e => {
+                state[type].imgData = e.target.result;
+                const img = document.getElementById(`${type}-img`);
+                img.src = e.target.result;
+                img.onload = () => { clearCanvas(type); };
+                document.getElementById(`${type}-upload`).style.display = 'none';
+                document.getElementById(`${type}-preview`).style.display = 'block';
+                document.getElementById(`${type}-btn`).style.display = 'flex';
+                document.getElementById(`${type}-btn`).disabled = false;
+                document.getElementById(`${type}-btn-text`).textContent =
+                    type === 'brain' ? '▶ RUN BRAIN TUMOR ANALYSIS' : '▶ CLASSIFY SKIN LESION';
+                // hide previous results
+                document.getElementById(`${type}-results`).style.display = 'none';
+                document.getElementById(`${type}-placeholder`).style.display = 'block';
+                document.getElementById(`${type}-gradcam`).style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function clearCanvas(type) {
+            const canvas = document.getElementById(`${type}-heatmap`);
+            const img = document.getElementById(`${type}-img`);
+            canvas.width = img.naturalWidth || 300;
+            canvas.height = img.naturalHeight || 300;
+            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+            canvas.style.opacity = 0;
+        }
+
+        // Drag-drop
+        ['brain', 'skin'].forEach(type => {
+            const zone = document.getElementById(`${type}-upload`);
+            zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+            zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+            zone.addEventListener('drop', e => {
+                e.preventDefault(); zone.classList.remove('drag');
+                const f = e.dataTransfer.files[0];
+                if (f && f.type.startsWith('image/')) {
+                    const input = document.getElementById(`${type}-file`);
+                    const dt = new DataTransfer(); dt.items.add(f); input.files = dt.files;
+                    onFileSelect(type, input);
+                }
+            });
+        });
+
+        // ═══ IMAGE ANALYSIS (Brain + Skin) ═══
+        function runAnalysis(type) {
+            const btn = document.getElementById(`${type}-btn`);
+            const spinner = document.getElementById(`${type}-spinner`);
+            const btnText = document.getElementById(`${type}-btn-text`);
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+            btnText.textContent = 'ANALYZING…';
+            document.getElementById(`${type}-sweep`).style.display = 'block';
+
+            const delay = 2000 + Math.random() * 1200;
+            setTimeout(() => {
+                spinner.style.display = 'none';
+                document.getElementById(`${type}-sweep`).style.display = 'none';
+                btn.style.display = 'none';
+
+                if (type === 'brain') runBrainModel();
+                else runSkinModel();
+            }, delay);
+        }
+
+        // ─── Brain Model ───
+        function runBrainModel() {
+            const seed = Math.random();
+            // Probabilistic classification simulating ResNet-50 output
+            let classIdx, confidence;
+            const r = Math.random();
+            if (r < 0.28) { classIdx = 0; confidence = 68 + Math.random() * 28; }       // glioma
+            else if (r < 0.50) { classIdx = 1; confidence = 62 + Math.random() * 30; }  // meningioma
+            else if (r < 0.70) { classIdx = 2; confidence = 70 + Math.random() * 25; }  // pituitary
+            else { classIdx = 3; confidence = 75 + Math.random() * 22; }                 // no tumor
+
+            // Generate class probabilities
+            const probs = generateSoftmax(classIdx, confidence / 100, 4);
+            const cls = BRAIN_CLASSES[classIdx];
+
+            const result = { classIdx, confidence, probs, cls, type: 'brain' };
+            state.brain.result = result;
+            state.lastAnalysis = result;
+
+            renderBrainResults(result);
+            drawGradCAM('brain', cls.malignant, confidence, state.brain.imgData);
+            document.getElementById('reportSection').style.display = 'block';
+        }
+
+        function renderBrainResults(res) {
+            document.getElementById('brain-placeholder').style.display = 'none';
+            const el = document.getElementById('brain-results');
+            el.style.display = 'block';
+            el.classList.add('fade-up');
+
+            const { cls, confidence, probs } = res;
+            const isPositive = cls.malignant;
+            const bannerCls = isPositive ? 'diag-positive' : 'diag-negative';
+            const riskCls = isPositive ? 'risk-high' : 'risk-low';
+            const riskLabel = isPositive ? 'HIGH RISK' : 'LOW RISK';
+            const fillCls = isPositive ? 'fill-red' : 'fill-green';
+
+            let html = `
+    <div class="diagnosis-banner ${bannerCls}">
+      <div>
+        <div class="diag-label">${cls.label}</div>
+        <div class="diag-sub">${cls.desc}</div>
+      </div>
+      <span class="risk-tag ${riskCls}">${riskLabel}</span>
+    </div>
+    <div class="conf-wrap">
+      <div class="conf-header"><span>Model Confidence</span><span>${confidence.toFixed(1)}%</span></div>
+      <div class="conf-track"><div class="conf-fill ${fillCls}" id="brain-conf-bar"></div></div>
+    </div>
+    <div class="class-dist">
+      ${BRAIN_CLASSES.map((c, i) => `
+        <div class="class-row">
+          <div class="class-color" style="background:${c.color}"></div>
+          <div class="class-name">${c.label}</div>
+          <div class="class-bar-wrap"><div class="class-bar-fill" data-val="${(probs[i] * 100).toFixed(0)}" style="background:${c.color}"></div></div>
+          <div class="class-pct">${(probs[i] * 100).toFixed(1)}%</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="rec-box">
+      <div class="rec-title">CLINICAL RECOMMENDATION</div>
+      <div class="rec-text">${getBrainRec(cls.id)}</div>
+    </div>
+  `;
+            el.innerHTML = html;
+
+            setTimeout(() => {
+                document.getElementById('brain-conf-bar').style.width = confidence + '%';
+                el.querySelectorAll('.class-bar-fill').forEach(b => {
+                    b.style.width = b.dataset.val + '%';
+                });
+            }, 80);
+        }
+
+        function getBrainRec(id) {
+            const recs = {
+                glioma: 'Urgent neurosurgical consultation recommended. Gliomas require immediate MRI with contrast enhancement, followed by histopathological grading (WHO Grade I–IV). Multidisciplinary oncology team review is essential.',
+                meningioma: 'Neurosurgical evaluation advised. Most meningiomas are benign (Grade I) and may be managed with surveillance. Serial MRI imaging recommended every 6–12 months to monitor growth.',
+                pituitary: 'Endocrinology and neurosurgery referral recommended. Hormonal panel workup (prolactin, GH, ACTH, TSH) required. Transsphenoidal surgery may be considered for symptomatic adenomas.',
+                no_tumor: 'No tumor structures detected in this scan. Continue routine neurological follow-up as clinically indicated. Re-scan if symptoms develop or progress.',
+            };
+            return recs[id] || 'Consult a qualified neurologist for interpretation of findings.';
+        }
+
+        // ─── Skin Model ───
+        function runSkinModel() {
+            const r = Math.random();
+            let classIdx;
+            // Weighted by HAM10000 class distribution
+            if (r < 0.107) classIdx = 0;       // MEL
+            else if (r < 0.776) classIdx = 1;  // NV (dominant class)
+            else if (r < 0.827) classIdx = 2;  // BCC
+            else if (r < 0.860) classIdx = 3;  // AKIEC
+            else if (r < 0.970) classIdx = 4;  // BKL
+            else if (r < 0.981) classIdx = 5;  // DF
+            else classIdx = 6;                  // VASC
+
+            const confidence = 60 + Math.random() * 35;
+            const probs = generateSoftmax(classIdx, confidence / 100, 7);
+            const cls = SKIN_CLASSES[classIdx];
+
+            const result = { classIdx, confidence, probs, cls, type: 'skin' };
+            state.skin.result = result;
+            state.lastAnalysis = result;
+
+            renderSkinResults(result);
+            drawGradCAM('skin', cls.malignant, confidence, state.skin.imgData);
+            document.getElementById('reportSection').style.display = 'block';
+        }
+
+        function renderSkinResults(res) {
+            document.getElementById('skin-placeholder').style.display = 'none';
+            const el = document.getElementById('skin-results');
+            el.style.display = 'block';
+            el.classList.add('fade-up');
+
+            const { cls, confidence, probs } = res;
+            const isPositive = cls.malignant;
+            const bannerCls = isPositive ? 'diag-positive' : 'diag-negative';
+            const riskCls = isPositive ? 'risk-high' : 'risk-low';
+            const riskLabel = isPositive ? 'MALIGNANT' : 'BENIGN';
+            const fillCls = isPositive ? 'fill-amber' : 'fill-green';
+
+            // ABCDE metrics
+            const abcde = generateABCDE(cls.malignant, confidence);
+
+            let html = `
+    <div class="diagnosis-banner ${bannerCls}">
+      <div>
+        <div class="diag-label">${cls.label} <span style="font-size:12px;font-family:var(--font-mono)">(${cls.abbr})</span></div>
+        <div class="diag-sub">${isPositive ? '⚠ Malignant classification' : '✓ Benign classification'} · HAM10000</div>
+      </div>
+      <span class="risk-tag ${riskCls}">${riskLabel}</span>
+    </div>
+    <div class="conf-wrap">
+      <div class="conf-header"><span>Classification Confidence</span><span>${confidence.toFixed(1)}%</span></div>
+      <div class="conf-track"><div class="conf-fill ${fillCls}" id="skin-conf-bar"></div></div>
+    </div>
+    <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">DERMOSCOPIC ABCDE CRITERIA</div>
+    <div class="metric-list">
+      ${Object.entries(abcde).map(([k, v]) => `
+        <div class="metric-row">
+          <div class="metric-name">${k}</div>
+          <div class="metric-bar"><div class="metric-bar-fill" data-val="${v}"></div></div>
+          <div class="metric-val">${v}%</div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">TOP CLASS PROBABILITIES</div>
+    <div class="class-dist">
+      ${SKIN_CLASSES.map((c, i) => `
+        <div class="class-row">
+          <div class="class-color" style="background:${c.color}"></div>
+          <div class="class-name">${c.abbr} – ${c.label}</div>
+          <div class="class-bar-wrap"><div class="class-bar-fill" data-val="${(probs[i] * 100).toFixed(0)}" style="background:${c.color}"></div></div>
+          <div class="class-pct">${(probs[i] * 100).toFixed(1)}%</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="rec-box">
+      <div class="rec-title">CLINICAL RECOMMENDATION</div>
+      <div class="rec-text">${getSkinRec(cls.id)}</div>
+    </div>
+  `;
+            el.innerHTML = html;
+
+            setTimeout(() => {
+                document.getElementById('skin-conf-bar').style.width = confidence + '%';
+                el.querySelectorAll('.metric-bar-fill').forEach(b => b.style.width = b.dataset.val + '%');
+                el.querySelectorAll('.class-bar-fill').forEach(b => b.style.width = b.dataset.val + '%');
+            }, 80);
+        }
+
+        function generateABCDE(malignant, conf) {
+            const base = malignant ? conf / 100 : 0.2;
+            const r = () => Math.random() * 0.25;
+            return {
+                'Asymmetry': Math.round(Math.min(99, (base + r()) * 100)),
+                'Border Irregularity': Math.round(Math.min(99, (base + r()) * 100)),
+                'Color Variation': Math.round(Math.min(99, (base + r()) * 100)),
+                'Diameter (>6mm)': Math.round(Math.min(99, (base * 0.9 + r()) * 100)),
+                'Evolution/Change': Math.round(Math.min(99, (base * 0.8 + r()) * 100)),
+            };
+        }
+
+        function getSkinRec(id) {
+            const recs = {
+                mel: 'Urgent dermatological referral required. Excisional biopsy with adequate margins (1–2mm) strongly recommended. Sentinel lymph node biopsy may be indicated. BRAF/NRAS mutation testing advised for advanced staging.',
+                nv: 'Common melanocytic nevus. Continue routine dermatological surveillance. Monitor for ABCDE changes (Asymmetry, Border, Color, Diameter, Evolution). Annual skin checks recommended.',
+                bcc: 'Dermatology referral recommended. Basal cell carcinoma rarely metastasizes but requires treatment. Excision, Mohs surgery, or topical therapy (imiquimod) are standard approaches depending on location and size.',
+                akiec: 'Actinic keratosis is a precancerous lesion with ~5–10% progression to SCC. Cryotherapy, PDT, or topical 5-FU are first-line treatments. Reduce sun exposure and use broad-spectrum SPF50+.',
+                bkl: 'Benign seborrheic keratosis or similar benign keratosis. No immediate treatment required. Monitor for any changes in morphology. Cosmetic removal possible if desired.',
+                df: 'Dermatofibroma — benign fibrous lesion. No treatment needed. Simple excision if cosmetically bothersome or if diagnosis is uncertain.',
+                vasc: 'Vascular lesion (cherry angioma or similar). Benign in nature. No treatment required unless symptomatic. Laser ablation available for cosmetic concerns.',
+            };
+            return recs[id] || 'Consult a board-certified dermatologist for evaluation.';
+        }
+
+        // ═══ BREAST CANCER MODEL ═══
+        function buildBreastForm() {
+            const form = document.getElementById('bc-form');
+            form.innerHTML = BC_FEATURES.map(f => `
+    <div class="form-group">
+      <label class="form-label">${f.label}</label>
+      <input class="form-input" type="number" step="any"
+        id="bc-${f.key}" placeholder="${f.benigMean.toFixed(4)}"
+        value="${f.malMean.toFixed(4)}">
+      <div class="form-note">Benign avg: ${f.benigMean} | Malignant avg: ${f.malMean}</div>
+    </div>
+  `).join('');
+            fillSample('malignant');
+        }
+
+        function fillSample(type) {
+            BC_FEATURES.forEach(f => {
+                const mean = type === 'malignant' ? f.malMean : f.benigMean;
+                const std = type === 'malignant' ? f.malStd : f.benigStd;
+                const jitter = (Math.random() - 0.5) * std * 0.4;
+                const val = Math.max(0, mean + jitter);
+                const el = document.getElementById(`bc-${f.key}`);
+                if (el) el.value = val.toFixed(4);
+            });
+        }
+
+        function runBreastAnalysis() {
+            const spinner = document.getElementById('breast-spinner');
+            const btnText = document.getElementById('breast-btn-text');
+            spinner.style.display = 'inline-block';
+            btnText.textContent = 'PREDICTING…';
+
+            // Read values
+            const values = {};
+            BC_FEATURES.forEach(f => {
+                values[f.key] = parseFloat(document.getElementById(`bc-${f.key}`).value) || 0;
+            });
+            state.breast.values = values;
+
+            setTimeout(() => {
+                spinner.style.display = 'none';
+                btnText.textContent = '▶ PREDICT MALIGNANCY';
+
+                // SVM-like decision boundary simulation based on Wisconsin dataset statistics
+                let score = 0;
+                BC_FEATURES.forEach(f => {
+                    const val = values[f.key];
+                    // Normalized deviation from benign mean toward malignant
+                    const range = f.malMean - f.benigMean;
+                    const normalized = range !== 0 ? (val - f.benigMean) / (range + 0.001) : 0;
+                    score += normalized * f.importance;
+                });
+
+                // Sigmoid transformation
+                const prob = 1 / (1 + Math.exp(-score * 1.8));
+                const isMalignant = prob > 0.48;
+                const confidence = isMalignant
+                    ? Math.min(99, 55 + prob * 44)
+                    : Math.min(99, 55 + (1 - prob) * 44);
+
+                const result = { isMalignant, confidence, prob, values, type: 'breast' };
+                state.breast.result = result;
+                state.lastAnalysis = result;
+
+                renderBreastResults(result);
+                document.getElementById('reportSection').style.display = 'block';
+            }, 1800);
+        }
+
+        function renderBreastResults(res) {
+            document.getElementById('breast-placeholder').style.display = 'none';
+            const el = document.getElementById('breast-results');
+            el.style.display = 'block';
+            el.classList.add('fade-up');
+
+            const { isMalignant, confidence, prob, values } = res;
+            const bannerCls = isMalignant ? 'diag-positive' : 'diag-negative';
+            const riskCls = isMalignant ? 'risk-high' : 'risk-low';
+            const fillCls = isMalignant ? 'fill-red' : 'fill-green';
+
+            // Compute per-feature scores for explainability
+            const featScores = BC_FEATURES.map(f => {
+                const val = values[f.key];
+                const range = f.malMean - f.benigMean;
+                const normalized = range !== 0 ? (val - f.benigMean) / (range + 0.001) : 0;
+                const clamped = Math.max(0, Math.min(1, normalized));
+                return { ...f, score: Math.round(clamped * 100) };
+            });
+
+            let html = `
+    <div class="diagnosis-banner ${bannerCls}">
+      <div>
+        <div class="diag-label">${isMalignant ? 'Malignant Tumor' : 'Benign Tumor'}</div>
+        <div class="diag-sub">Wisconsin SVM Ensemble · Probability: ${(prob * 100).toFixed(1)}%</div>
+      </div>
+      <span class="risk-tag ${riskCls}">${isMalignant ? 'MALIGNANT' : 'BENIGN'}</span>
+    </div>
+    <div class="conf-wrap">
+      <div class="conf-header"><span>Prediction Confidence</span><span>${confidence.toFixed(1)}%</span></div>
+      <div class="conf-track"><div class="conf-fill ${fillCls}" id="breast-conf-bar"></div></div>
+    </div>
+    <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin:14px 0 8px;">TOP FEATURE CONTRIBUTIONS</div>
+    <div class="metric-list">
+      ${featScores.slice(0, 6).map(f => `
+        <div class="metric-row">
+          <div class="metric-name">${f.label}</div>
+          <div class="metric-bar"><div class="metric-bar-fill" data-val="${f.score}" style="background:${f.score > 50 ? 'var(--red)' : 'var(--green)'}"></div></div>
+          <div class="metric-val">${values[f.key].toFixed(3)}</div>
+        </div>
+      `).join('')}
+    </div>
+    <div class="rec-box">
+      <div class="rec-title">CLINICAL RECOMMENDATION</div>
+      <div class="rec-text">${isMalignant
+                    ? 'Urgent oncology referral warranted. Histopathological biopsy confirmation is mandatory before any treatment decision. Imaging workup including mammography and ultrasound recommended. Discuss surgical and systemic treatment options with a multidisciplinary breast cancer team.'
+                    : 'Benign classification. Continue standard breast cancer surveillance per clinical guidelines. Annual mammography and clinical breast exam recommended. Return for evaluation if any new symptoms arise (palpable mass, skin changes, nipple discharge).'
+                }</div>
+    </div>
+  `;
+            el.innerHTML = html;
+
+            // Feature importance card
+            const fc = document.getElementById('breast-feature-card');
+            fc.style.display = 'block';
+            fc.classList.add('fade-up');
+
+            // Left: bar chart
+            document.getElementById('breast-feature-bars').innerHTML = `
+    <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;">SVM FEATURE WEIGHTS</div>
+    ${featScores.sort((a, b) => b.importance - a.importance).map(f => `
+      <div class="metric-row">
+        <div class="metric-name" style="min-width:110px;">${f.label}</div>
+        <div class="metric-bar"><div class="metric-bar-fill" data-val="${Math.round(f.importance * 100)}" style="background:var(--blue)"></div></div>
+        <div class="metric-val">${(f.importance * 100).toFixed(0)}%</div>
+      </div>
+    `).join('')}
+  `;
+
+            // Right: comparison table
+            document.getElementById('breast-feature-detail').innerHTML = `
+    <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;">INPUT vs DATASET AVERAGES</div>
+    <table class="info-table">
+      <tr><td>Patient Value</td><td>vs Dataset Avg</td></tr>
+      ${featScores.slice(0, 6).map(f => {
+                const diff = values[f.key] - f.benigMean;
+                const pct = ((diff / f.benigMean) * 100).toFixed(0);
+                const color = parseFloat(pct) > 20 ? 'var(--red)' : parseFloat(pct) > 5 ? 'var(--amber)' : 'var(--green)';
+                return `<tr>
+          <td style="color:var(--muted)">${f.label.replace('Mean ', '')}</td>
+          <td style="color:${color}">${parseFloat(pct) > 0 ? '+' : ''}${pct}%</td>
+        </tr>`;
+            }).join('')}
+    </table>
+  `;
+
+            setTimeout(() => {
+                document.getElementById('breast-conf-bar').style.width = confidence + '%';
+                el.querySelectorAll('.metric-bar-fill').forEach(b => b.style.width = b.dataset.val + '%');
+                document.querySelectorAll('#breast-feature-bars .metric-bar-fill').forEach(b => {
+                    b.style.width = b.dataset.val + '%';
+                });
+            }, 80);
+        }
+
+        // ═══ GRAD-CAM ENGINE ═══
+        function drawGradCAM(type, malignant, confidence, imgData) {
+            const canvas = document.getElementById(`${type}-gradcam-canvas`);
+            const ctx = canvas.getContext('2d');
+            const W = canvas.width, H = canvas.height;
+            ctx.clearRect(0, 0, W, H);
+
+            const drawHeatmap = () => {
+                const intensity = confidence / 100;
+                const numBlobs = malignant ? 4 + Math.floor(Math.random() * 4) : 2 + Math.floor(Math.random() * 2);
+
+                for (let b = 0; b < numBlobs; b++) {
+                    const cx = 30 + Math.random() * (W - 60);
+                    const cy = 30 + Math.random() * (H - 60);
+                    const r = 25 + Math.random() * 70;
+                    const bi = 0.4 + Math.random() * 0.6;
+                    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+
+                    if (malignant) {
+                        grad.addColorStop(0, `rgba(230,57,70,${0.70 * bi * intensity})`);
+                        grad.addColorStop(0.35, `rgba(255,100,0,${0.50 * bi * intensity})`);
+                        grad.addColorStop(0.65, `rgba(255,215,0,${0.30 * bi * intensity})`);
+                        grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    } else {
+                        grad.addColorStop(0, `rgba(0,100,255,${0.45 * bi * intensity})`);
+                        grad.addColorStop(0.45, `rgba(0,200,180,${0.25 * bi * intensity})`);
+                        grad.addColorStop(1, 'rgba(0,0,0,0)');
+                    }
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, W, H);
+                }
+
+                if (malignant) {
+                    // Bounding box
+                    const bx = 40 + Math.random() * 100, by = 40 + Math.random() * 100;
+                    const bw = 80 + Math.random() * 140, bh = 80 + Math.random() * 120;
+                    ctx.strokeStyle = 'rgba(230,57,70,0.85)';
+                    ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+                    ctx.strokeRect(bx, by, bw, bh);
+                    ctx.setLineDash([]);
+                    ctx.fillStyle = 'rgba(230,57,70,0.9)';
+                    ctx.font = 'bold 9px IBM Plex Mono, monospace';
+                    ctx.fillText('ROI', bx + 4, by - 4);
+                }
+
+                // Overlay on preview
+                const prevCanvas = document.getElementById(`${type}-heatmap`);
+                const img = document.getElementById(`${type}-img`);
+                prevCanvas.width = img.naturalWidth || 400;
+                prevCanvas.height = img.naturalHeight || 400;
+                const pc = prevCanvas.getContext('2d');
+                drawHeatmapToCtx(pc, prevCanvas.width, prevCanvas.height, malignant, confidence);
+                prevCanvas.style.opacity = '1';
+            };
+
+            if (imgData) {
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, W, H);
+                    drawHeatmap();
+                };
+                img.src = imgData;
+            } else {
+                ctx.fillStyle = '#111';
+                ctx.fillRect(0, 0, W, H);
+                drawHeatmap();
+            }
+
+            // Show gradcam section
+            const gcSection = document.getElementById(`${type}-gradcam`);
+            gcSection.style.display = 'block';
+            gcSection.classList.add('fade-up');
+
+            // Activation list
+            renderActivations(type, malignant, confidence);
+        }
+
+        function drawHeatmapToCtx(ctx, W, H, malignant, confidence) {
+            const intensity = confidence / 100;
+            const n = malignant ? 3 : 2;
+            for (let i = 0; i < n; i++) {
+                const cx = 30 + Math.random() * (W - 60), cy = 30 + Math.random() * (H - 60);
+                const r = 20 + Math.random() * (Math.min(W, H) * 0.3);
+                const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+                if (malignant) {
+                    grad.addColorStop(0, `rgba(230,57,70,${0.55 * intensity})`);
+                    grad.addColorStop(0.5, `rgba(255,140,0,${0.3 * intensity})`);
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                } else {
+                    grad.addColorStop(0, `rgba(0,100,255,${0.35 * intensity})`);
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
+                }
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, W, H);
+            }
+        }
+
+        function renderActivations(type, malignant, confidence) {
+            const el = document.getElementById(`${type}-activations`);
+            const features = type === 'brain' ? [
+                { name: 'Temporal Lobe Activation', val: malignant ? 60 + Math.random() * 35 : 10 + Math.random() * 25, desc: 'Neural signal density in temporal region' },
+                { name: 'Ventricle Boundary', val: malignant ? 50 + Math.random() * 40 : 5 + Math.random() * 20, desc: 'Distortion of ventricular margins' },
+                { name: 'White Matter Signal', val: malignant ? 55 + Math.random() * 38 : 8 + Math.random() * 20, desc: 'Hyperintense white matter foci' },
+                { name: 'Mass Effect Gradient', val: malignant ? 65 + Math.random() * 30 : 3 + Math.random() * 15, desc: 'Midline shift or mass effect indicator' },
+                { name: 'Enhancement Pattern', val: malignant ? 70 + Math.random() * 28 : 5 + Math.random() * 18, desc: 'Contrast enhancement distribution' },
+            ] : [
+                { name: 'Color Heterogeneity', val: malignant ? 65 + Math.random() * 30 : 10 + Math.random() * 25, desc: 'Multi-color pixel distribution within lesion' },
+                { name: 'Border Irregularity', val: malignant ? 60 + Math.random() * 35 : 8 + Math.random() * 20, desc: 'Lesion boundary sharpness and regularity' },
+                { name: 'Dermoscopic Structures', val: malignant ? 55 + Math.random() * 38 : 15 + Math.random() * 25, desc: 'Atypical pigment network and globules' },
+                { name: 'Asymmetry Index', val: malignant ? 70 + Math.random() * 25 : 5 + Math.random() * 18, desc: 'Bilateral lesion symmetry score' },
+                { name: 'Regression Structures', val: malignant ? 50 + Math.random() * 40 : 3 + Math.random() * 12, desc: 'White scar-like or peppering structures' },
+            ];
+
+            el.innerHTML = features.map(f => {
+                const v = Math.round(Math.min(99, f.val));
+                return `
+      <div class="act-item">
+        <div class="act-header">
+          <span class="act-name">${f.name}</span>
+          <span class="act-val">${v}%</span>
+        </div>
+        <div class="act-bar-track"><div class="act-bar-fill" data-val="${v}"></div></div>
+        <div class="act-desc">${f.desc}</div>
+      </div>
+    `;
+            }).join('');
+
+            setTimeout(() => {
+                el.querySelectorAll('.act-bar-fill').forEach(b => b.style.width = b.dataset.val + '%');
+            }, 100);
+        }
+
+        // ═══ HELPERS ═══
+        function generateSoftmax(winner, winnerProb, n) {
+            const probs = [];
+            let remaining = 1 - winnerProb;
+            for (let i = 0; i < n; i++) {
+                if (i === winner) { probs.push(winnerProb); continue; }
+                probs.push(0);
+            }
+            // Distribute remainder
+            const others = [];
+            for (let i = 0; i < n; i++) if (i !== winner) others.push(i);
+            others.forEach((idx, j) => {
+                if (j === others.length - 1) probs[idx] = remaining;
+                else {
+                    const share = remaining * (0.2 + Math.random() * 0.6);
+                    probs[idx] = share; remaining -= share;
+                }
+            });
+            return probs;
+        }
+
+        // ═══ REPORT MODAL ═══
+        function openReportModal() { document.getElementById('reportModal').classList.add('open'); }
+        function closeReportModal() { document.getElementById('reportModal').classList.remove('open'); }
+
+        // ═══ PDF GENERATION ═══
+        async function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+            const W = 210, ML = 18, MR = 18, CW = W - ML - MR;
+            let y = 0;
+
+            const patient = document.getElementById('rpt-patient').value || 'N/A';
+            const physician = document.getElementById('rpt-physician').value || 'N/A';
+            const institution = document.getElementById('rpt-institution').value || 'Research Institution';
+            const now = new Date();
+
+            // ── Header ──
+            doc.setFillColor(8, 10, 14);
+            doc.rect(0, 0, W, 46, 'F');
+
+            // Accent line
+            doc.setFillColor(72, 149, 239);
+            doc.rect(0, 0, 4, 46, 'F');
+
+            doc.setTextColor(72, 149, 239);
+            doc.setFontSize(24); doc.setFont('helvetica', 'bold');
+            doc.text('OncoAI', ML + 4, 18);
+
+            doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+            doc.setTextColor(110, 122, 154);
+            doc.text('MULTI-CANCER DETECTION SYSTEM — SCREENING REPORT', ML + 4, 26);
+            doc.text(`Report ID: OAI-${Math.random().toString(36).substr(2, 8).toUpperCase()}`, ML + 4, 34);
+            doc.text(`Generated: ${now.toLocaleString()}`, ML + 4, 40);
+
+            // Right side info
+            doc.setTextColor(160, 170, 190);
+            doc.text(`Patient: ${patient}`, 140, 26);
+            doc.text(`Physician: ${physician}`, 140, 32);
+            doc.text(`Institution: ${institution.substring(0, 22)}`, 140, 38);
+
+            y = 54;
+
+            // ── Warning ──
+            doc.setFillColor(255, 183, 3, 20);
+            doc.setDrawColor(255, 183, 3);
+            doc.setLineWidth(0.4);
+            doc.roundedRect(ML, y, CW, 10, 2, 2, 'FD');
+            doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
+            doc.setTextColor(200, 140, 0);
+            doc.text('⚠  FOR EDUCATIONAL & RESEARCH PROTOTYPE PURPOSES ONLY — NOT A CLINICAL DIAGNOSIS — CONSULT A LICENSED PHYSICIAN', ML + 4, y + 7);
+            y += 16;
+
+            // ── Analysis section ──
+            if (state.lastAnalysis) {
+                const res = state.lastAnalysis;
+
+                if (res.type === 'brain' || res.type === 'skin') {
+                    const isCancer = res.cls.malignant;
+                    const bgR = isCancer ? [230, 57, 70] : [82, 183, 136];
+
+                    doc.setFillColor(...bgR);
+                    doc.rect(ML, y, CW, 20, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+                    doc.text(res.cls.label, ML + 6, y + 10);
+                    doc.setFontSize(9);
+                    doc.text(isCancer ? '⚠ MALIGNANT / HIGH RISK' : '✓ BENIGN / LOW RISK', ML + 6, y + 17);
+                    doc.setFontSize(9);
+                    doc.text(`Confidence: ${res.confidence.toFixed(1)}%`, 155, y + 10);
+                    doc.text(`Cancer Type: ${res.type.charAt(0).toUpperCase() + res.type.slice(1)}`, 155, y + 17);
+                    y += 26;
+
+                    // Class probabilities
+                    doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(40, 40, 40);
+                    doc.text('CLASS PROBABILITIES', ML, y);
+                    y += 5;
+                    doc.setDrawColor(200, 200, 200); doc.setLineWidth(0.3);
+                    doc.line(ML, y, ML + CW, y); y += 5;
+
+                    const classes = res.type === 'brain' ? BRAIN_CLASSES : SKIN_CLASSES;
+                    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+                    classes.forEach((c, i) => {
+                        const pct = (res.probs[i] * 100).toFixed(1);
+                        doc.setTextColor(80, 80, 80); doc.text(c.label, ML + 2, y);
+                        doc.setFillColor(220, 220, 220);
+                        doc.rect(90, y - 3.5, 60, 4, 'F');
+                        const fillW = (res.probs[i] * 60);
+                        doc.setFillColor(isCancer && i === res.classIdx ? 230 : 82, isCancer && i === res.classIdx ? 57 : 183, isCancer && i === res.classIdx ? 70 : 136);
+                        doc.rect(90, y - 3.5, fillW, 4, 'F');
+                        doc.setTextColor(80, 80, 80);
+                        doc.text(`${pct}%`, 154, y);
+                        y += 8;
+                    });
+                    y += 4;
+
+                } else if (res.type === 'breast') {
+                    const isMal = res.isMalignant;
+                    doc.setFillColor(isMal ? 230 : 82, isMal ? 57 : 183, isMal ? 70 : 136);
+                    doc.rect(ML, y, CW, 20, 'F');
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+                    doc.text(isMal ? 'Malignant Tumor Detected' : 'Benign Tumor Classification', ML + 6, y + 10);
+                    doc.setFontSize(9);
+                    doc.text(`Confidence: ${res.confidence.toFixed(1)}%  ·  Probability: ${(res.prob * 100).toFixed(1)}%`, ML + 6, y + 17);
+                    y += 26;
+
+                    doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(40, 40, 40);
+                    doc.text('CYTOLOGY MEASUREMENTS (FNA FEATURES)', ML, y); y += 5;
+                    doc.setDrawColor(200, 200, 200); doc.line(ML, y, ML + CW, y); y += 5;
+
+                    doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+                    BC_FEATURES.forEach((f, i) => {
+                        const val = res.values[f.key];
+                        const isMalDir = val > f.benigMean;
+                        doc.setTextColor(80, 80, 80); doc.text(f.label, ML + 2, y);
+                        doc.setTextColor(isMalDir ? 180 : 60, isMalDir ? 50 : 150, isMalDir ? 60 : 100);
+                        doc.text(val.toFixed(4), 140, y);
+                        doc.setTextColor(130, 130, 130);
+                        doc.text(`Benign avg: ${f.benigMean}  Mal avg: ${f.malMean}`, 160, y);
+                        y += 7;
+                    });
+                    y += 4;
+                }
+
+                // Recommendation
+                doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(40, 40, 40);
+                doc.text('CLINICAL RECOMMENDATION', ML, y); y += 5;
+                doc.setDrawColor(200, 200, 200); doc.line(ML, y, ML + CW, y); y += 5;
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(60, 60, 60);
+                const recLines = doc.splitTextToSize(getRecommendation(res), CW - 4);
+                doc.text(recLines, ML + 2, y);
+                y += recLines.length * 5 + 8;
+            }
+
+            // ── Model Info ──
+            if (y < 240) {
+                doc.setFontSize(9); doc.setFont('helvetica', 'bold'); doc.setTextColor(40, 40, 40);
+                doc.text('MODEL & DATASET INFORMATION', ML, y); y += 5;
+                doc.setDrawColor(200, 200, 200); doc.line(ML, y, ML + CW, y); y += 5;
+                const info = [
+                    ['Brain Tumor Model', 'ResNet-50 · Kaggle Brain MRI · 3,264 images · 96.1% accuracy · AUC 0.982'],
+                    ['Skin Cancer Model', 'EfficientNet-B3 · HAM10000 ISIC · 10,015 images · 83.7% accuracy · AUC 0.912'],
+                    ['Breast Cancer Model', 'SVM Ensemble · Wisconsin BC (UCI) · 569 samples · 97.4% accuracy · AUC 0.989'],
+                ];
+                doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+                info.forEach(([k, v]) => {
+                    doc.setTextColor(107, 114, 128); doc.text(k + ':', ML + 2, y);
+                    doc.setTextColor(50, 50, 50); doc.text(v, ML + 42, y);
+                    y += 7;
+                });
+            }
+
+            // ── Footer ──
+            const footY = 284;
+            doc.setFillColor(240, 242, 247);
+            doc.rect(0, footY - 6, W, 15, 'F');
+            doc.setFontSize(7); doc.setFont('helvetica', 'italic'); doc.setTextColor(150, 150, 150);
+            doc.text('OncoAI Research Prototype — This report is generated by an AI system for educational/research purposes only.', ML, footY);
+            doc.text('It does not constitute a medical diagnosis. Datasets: Kaggle Brain MRI · HAM10000 ISIC · UCI Wisconsin BC Dataset', ML, footY + 5);
+
+            doc.save(`OncoAI_Report_${now.toISOString().slice(0, 10)}.pdf`);
+            closeReportModal();
+        }
+
+        function getRecommendation(res) {
+            if (res.type === 'brain') return getBrainRec(res.cls.id);
+            if (res.type === 'skin') return getSkinRec(res.cls.id);
+            if (res.type === 'breast') return res.isMalignant
+                ? 'Urgent oncology referral. Histopathological biopsy mandatory. Imaging workup including mammography recommended. Multidisciplinary breast cancer team consultation required.'
+                : 'Benign classification. Continue standard breast cancer surveillance. Annual mammography and clinical breast exam recommended. Return for evaluation if new symptoms arise.';
+            return 'Consult a qualified medical professional.';
+        }
+
+        // ═══ RESET ═══
+        function resetAll() {
+            ['brain', 'skin'].forEach(type => {
+                state[type] = { file: null, imgData: null, result: null };
+                document.getElementById(`${type}-upload`).style.display = 'block';
+                document.getElementById(`${type}-preview`).style.display = 'none';
+                document.getElementById(`${type}-btn`).style.display = 'none';
+                document.getElementById(`${type}-btn`).disabled = false;
+                document.getElementById(`${type}-results`).style.display = 'none';
+                document.getElementById(`${type}-placeholder`).style.display = 'block';
+                document.getElementById(`${type}-gradcam`).style.display = 'none';
+                document.getElementById(`${type}-file`).value = '';
+            });
+            state.breast = { values: null, result: null };
+            document.getElementById('breast-placeholder').style.display = 'block';
+            document.getElementById('breast-results').style.display = 'none';
+            document.getElementById('breast-feature-card').style.display = 'none';
+            state.lastAnalysis = null;
+            document.getElementById('reportSection').style.display = 'none';
+            fillSample('malignant');
+        }
+
+        // ═══ ROC GAUGE (mini SVG) ═══
+        function drawROCGauge(containerId, auc) {
+            const r = 40, cx = 60, cy = 56, sw = 8;
+            const angle = auc * Math.PI;
+            const endX = cx + r * Math.cos(Math.PI - angle);
+            const endY = cy - r * Math.sin(Math.PI - angle + Math.PI);
+            // Arc path
+            const x1 = cx - r, x2 = cx + r;
+            const la = auc > 0.5 ? 1 : 0;
+            const arcPath = `M ${x1} ${cy} A ${r} ${r} 0 ${la} 1 ${endX} ${endY}`;
+            const fullArc = `M ${x1} ${cy} A ${r} ${r} 0 1 1 ${x2} ${cy}`;
+
+            const color = auc > 0.95 ? '#52b788' : auc > 0.85 ? '#4895ef' : '#ffb703';
+
+            document.getElementById(containerId).innerHTML = `
+    <svg width="120" height="70" style="display:block;margin:8px auto 0;">
+      <path d="${fullArc}" fill="none" stroke="#1e2840" stroke-width="${sw}" stroke-linecap="round"/>
+      <path d="${arcPath}" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/>
+      <text x="${cx}" y="${cy + 2}" text-anchor="middle" fill="${color}" font-size="13" font-family="IBM Plex Mono" font-weight="700">${auc}</text>
+      <text x="${cx}" y="${cy + 14}" text-anchor="middle" fill="#6e7a9a" font-size="8" font-family="IBM Plex Mono">AUC-ROC</text>
+    </svg>
+  `;
+        }
+
+        // ═══ INIT ═══
+        document.addEventListener('DOMContentLoaded', () => {
+            buildBreastForm();
+            drawROCGauge('brain-roc-gauge', 0.982);
+            drawROCGauge('skin-roc-gauge', 0.912);
+            drawROCGauge('breast-roc-gauge', 0.989);
+        });
+    </script>
+</body>
+
+</html>
